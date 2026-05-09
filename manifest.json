@@ -1,0 +1,11 @@
+{
+  "extensions": [
+    {
+      "name": "Nyaa",
+      "id": "nyaa",
+      "version": "1.0.0",
+      "description": "Nyaa.si via RSS",
+      "main": "https://raw.githubusercontent.com/etchylamp/hayase-extensions/main/nyaa.js"
+    }
+  ]
+}
