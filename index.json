@@ -1,9 +1,26 @@
 [
   {
-    "name": "Nyaa",
-    "id": "nyaa",
-    "version": "1.0.0",
-    "description": "Nyaa.si via RSS",
-    "url": "https://raw.githubusercontent.com/etchylamp/hayase-extensions/main/nyaa.js"
-  }
+    "manifestVersion": 1,
+    "name": "AnimeTosho",
+    "id": "animetosho",
+    "version": "0.1.3",
+    "type": "torrent",
+    "accuracy": "high",
+    "ratio": 0,
+    "media": "sub",
+    "languages": [
+      "US"
+    ],
+    "icon": "https://animetosho.xyz/inc/favicon.ico",
+    "update": "https://etchylamp.github.io/hayase-extensions/index.json",
+    "code": "https://etchylamp.github.io/hayase-extensions/nyaa.js",
+    "options": {
+      "useTorrent": {
+        "type": "boolean",
+        "description": "Use .torrent files instead of magnet links, this can cause issues with some internet providers if they block some domains",
+        "default": false
+      }
+    }
+  },
+
 ]
