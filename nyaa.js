@@ -1,47 +1,60 @@
-export default new class Nyaa {
-  base = 'https://nyaa.si'
+const QUALITIES = [ "1080", "720", "540", "480" ];
 
-  async single({ titles, episode }) {
-    if (!titles?.length) return []
-    return this.search(titles[0], episode)
+export default new class Tosho {
+  url=atob("aHR0cHM6Ly9mZWVkLmFuaW1ldG9zaG8ueHl6L2pzb24=");
+  _buildQuery({resolution: resolution, exclusions: exclusions}) {
+    if (!exclusions?.length && !resolution) return "";
+    const base = `&qx=1&q=!("${exclusions.join('"|"')}")`;
+    if (!resolution) return base;
+    return base + `!(*${QUALITIES.filter(q => q !== resolution).join("*|*")}*)`;
   }
-  batch = this.single
-  movie = this.single
-
-  async search(title, episode) {
-    let query = title.replace(/[^\w\s-]/g, ' ').trim()
-    if (episode) query += ` ${episode.toString().padStart(2, '0')}`
-
-    const url = `${this.base}/?page=rss&c=1_2&f=0&q=${encodeURIComponent(query)}`
-    const res = await fetch(url)
-    const text = await res.text()
-
-    const parser = new DOMParser()
-    const xml = parser.parseFromString(text, 'application/xml')
-    const items = [...xml.querySelectorAll('item')]
-
-    return items.map(item => {
-      const magnet = item.querySelector('link')?.nextSibling?.nodeValue?.trim()
-        || item.getElementsByTagNameNS('*', 'magnetUri')?.[0]?.textContent
-        || ''
-
-      return {
-        title: item.querySelector('title')?.textContent || '',
-        link: magnet,
-        hash: magnet?.match(/btih:([A-Fa-f0-9]+)/i)?.[1] || '',
-        seeders: Number(item.getElementsByTagNameNS('*', 'seeders')?.[0]?.textContent || 0),
-        leechers: Number(item.getElementsByTagNameNS('*', 'leechers')?.[0]?.textContent || 0),
-        downloads: Number(item.getElementsByTagNameNS('*', 'downloads')?.[0]?.textContent || 0),
-        size: Number(item.getElementsByTagNameNS('*', 'size')?.[0]?.textContent || 0),
-        date: new Date(item.querySelector('pubDate')?.textContent || ''),
-        accuracy: 'medium',
-        type: 'alt'
-      }
-    })
+  map(entries, batch = !1, useTorrent = !1) {
+    return entries.map(entry => ({
+      title: entry.title || entry.torrent_name,
+      link: useTorrent ? entry.torrent_url : entry.magnet_uri,
+      seeders: (entry.seeders || 0) >= 3e4 ? 0 : entry.seeders || 0,
+      leechers: (entry.leechers || 0) >= 3e4 ? 0 : entry.leechers || 0,
+      downloads: entry.torrent_downloaded_count || 0,
+      hash: entry.info_hash,
+      size: entry.total_size,
+      accuracy: entry.anidb_fid && !batch ? "high" : "medium",
+      type: batch ? "batch" : void 0,
+      date: new Date(1e3 * entry.timestamp)
+    }));
   }
-
+  async single({anidbEid: anidbEid, resolution: resolution, exclusions: exclusions}, options) {
+    if (!navigator.onLine) return [];
+    if (!anidbEid) throw new Error("No anidbEid provided");
+    const query = this._buildQuery({
+      resolution: resolution,
+      exclusions: exclusions
+    }), res = await fetch(this.url + "?eid=" + anidbEid + query), data = await res.json();
+    return data.length ? this.map(data, !1, options?.useTorrent) : [];
+  }
+  async batch({anidbAid: anidbAid, resolution: resolution, exclusions: exclusions, episode: episode}, options) {
+    if (!navigator.onLine) return [];
+    if (!anidbAid) throw new Error("No anidbAid provided");
+    const query = this._buildQuery({
+      resolution: resolution,
+      exclusions: exclusions
+    }), res = await fetch(this.url + "?order=size-d&aid=" + anidbAid + query), data = (await res.json()).filter(entry => entry.num_files >= Math.min(24, Math.max(2, episode ?? 1)));
+    return data.length ? this.map(data, !0, options?.useTorrent) : [];
+  }
+  async movie({anidbAid: anidbAid, resolution: resolution, exclusions: exclusions}, options) {
+    if (!navigator.onLine) return [];
+    if (!anidbAid) throw new Error("No anidbAid provided");
+    const query = this._buildQuery({
+      resolution: resolution,
+      exclusions: exclusions
+    }), res = await fetch(this.url + "?aid=" + anidbAid + query), data = await res.json();
+    return data.length ? this.map(data, !1, options?.useTorrent) : [];
+  }
   async test() {
-    const res = await fetch(`${this.base}/?page=rss&q=one+piece&c=1_2&f=0`)
-    return res.ok
+    try {
+      if (!(await fetch(this.url)).ok) throw new Error(`Failed to load data from ${this.url}! Is the site down?`);
+      return !0;
+    } catch (error) {
+      throw new Error(`Could not reach ${this.url}! Does the site work in your region?`);
+    }
   }
-}()
+};
